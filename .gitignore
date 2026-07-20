@@ -1,0 +1,34 @@
+# ---- Build artifacts ----
+build/
+dist/
+release-src/
+__pycache__/
+*.spec
+*.pyc
+
+# ---- Runtime data (created next to the exe) ----
+config.json
+cleaner.log
+
+# ---- Icon experiments / scratch images ----
+gauge_*.png
+gauge_*.ico
+icon_[A-F].png
+icon_[A-F].ico
+icon-preview.png
+iconico-check.png
+icons-options.png
+gauges-options.png
+exe-icon-*.png
+make_icon.py
+make_icons.py
+make_gauges.py
+
+# ---- Business / internal docs (keep private) ----
+SELLING-STEP-BY-STEP.md
+GUIDE.md
+
+# ---- Python envs ----
+venv/
+.venv/
+env/
