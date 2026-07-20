@@ -80,7 +80,7 @@ The executable is produced at `dist\PersonalCleaner.exe`. Main source: `quick_fi
 ## Support
 
 PersonalCleaner is free and open-source. If it's useful to you, you can support
-development on **[Gumroad](#)** (pay what you want, or grab it free). ☕
+development on **[Gumroad](https://observerly1.gumroad.com/l/ialzp)** (pay what you want, or grab it free). ☕
 
 ## License
 
