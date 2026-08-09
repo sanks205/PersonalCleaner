@@ -27,6 +27,8 @@ opposite: small, transparent, opt-in, and reversible.
 | 🧠 **Free up RAM** | Purges the standby list to reclaim cached memory when RAM is high |
 | 🧹 **Clean junk** | Removes old temp / Windows Error Reporting files and empties the Recycle Bin (only files older than 24h) |
 | 🚀 **Speed up boot** | Enable/disable startup programs by their real names |
+| 🪟 **Close a stuck app** | Mini task manager — see top memory hogs and close any non-critical app |
+| 🔄 **Restart Explorer** | Fix a hung taskbar / desktop in one command |
 | ⚙️ **Pro tune-ups** | Antivirus (Defender) folder/process exclusions for faster dev builds; curated Windows service tuning |
 | 🌙 **Background maintenance** | Optional silent upkeep on idle + daily, with a notification and history |
 | 🔁 **Weekly idle restart** | Optional scheduled restart — only when you're away, with a cancellable warning |
@@ -52,9 +54,10 @@ opposite: small, transparent, opt-in, and reversible.
 
 ```
 MAINTENANCE:   M1 Scan & fix   M2 Free RAM   M3 Startup programs
+               M4 Close an app   M5 Restart Explorer
 AUTOMATION:    A1 Settings     A2 Background schedule   A3 Weekly idle restart
 PRO TUNE-UPS:  P1 Antivirus exclusions   P2 Service tuning
-INFO:          I1 Activity log   I2 Run history
+INFO:          I1 Activity log   I2 Run history   I3 About
 ```
 
 Settings and logs are stored next to the executable (portable).
@@ -79,8 +82,9 @@ The executable is produced at `dist\PersonalCleaner.exe`. Main source: `quick_fi
 
 ## Support
 
-PersonalCleaner is free and open-source. If it's useful to you, you can support
-development on **[Gumroad](https://observerly1.gumroad.com/l/ialzp)** (pay what you want, or grab it free). ☕
+PersonalCleaner is free and open-source. If it's useful to you, a paid
+**Pro version** (background automation, weekly idle restart, Defender
+exclusions and service tuning) is available on **[Gumroad](https://observerly1.gumroad.com/l/ialzp)**. ☕
 
 ## License
 

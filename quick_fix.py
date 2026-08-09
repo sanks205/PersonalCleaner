@@ -39,6 +39,9 @@ except ImportError:
     time.sleep(5)
     sys.exit(1)
 
+# Free, open-source build. The paid PersonalCleanerPro (on Gumroad) is a
+# separate commercial build; this repository contains only the free tool.
+
 
 # --------------------------------------------------------------------------- #
 # Configuration
@@ -73,7 +76,7 @@ DEFAULT_DAILY_TIME = "03:00"
 
 APP_NAME = "PersonalCleaner"
 APP_TAGLINE = "Honest Windows Optimizer"
-APP_VERSION = "1.0"
+APP_VERSION = "1.1"
 
 # ASCII-art logo (figlet "standard" font), stacked Personal / Cleaner.
 BANNER = [
@@ -205,14 +208,27 @@ SERVICE_TUNING = [
 
 # --- Safety lists ----------------------------------------------------------- #
 
+# Processes that must NEVER be killed - doing so crashes Windows (BSOD),
+# logs you out, or breaks the desktop / Start menu / taskbar / text input.
+# Everything NOT on this list is fair game for the user to close.
 BLOCKLIST = {
-    "explorer.exe", "svchost.exe", "lsass.exe", "services.exe", "wininit.exe",
-    "csrss.exe", "spoolsv.exe", "taskhostw.exe", "smss.exe", "winlogon.exe",
-    "dwm.exe", "system", "registry", "fontdrvhost.exe",
-}
-ALLOWLIST = {
-    "chrome.exe", "msedge.exe", "node.exe", "slack.exe", "teams.exe",
-    "discord.exe",
+    # --- Kernel / session: killing = BSOD or instant crash ---
+    "system", "registry", "memory compression",
+    "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
+    "services.exe", "lsass.exe", "lsaiso.exe", "svchost.exe",
+    "fontdrvhost.exe",
+    # --- Logon / init ---
+    "logonui.exe", "userinit.exe",
+    # --- Shell / desktop UI: killing breaks taskbar, Start, desktop, input ---
+    "explorer.exe", "dwm.exe", "sihost.exe", "ctfmon.exe", "taskhostw.exe",
+    "shellexperiencehost.exe", "startmenuexperiencehost.exe",
+    "searchhost.exe", "searchapp.exe", "searchindexer.exe",
+    "applicationframehost.exe", "textinputhost.exe",
+    # --- Core services best not force-killed ---
+    "spoolsv.exe", "wudfhost.exe",
+    # --- Security (also OS-protected) ---
+    "msmpeng.exe", "mssense.exe", "securityhealthservice.exe",
+    "securityhealthsystray.exe",
 }
 IGNORE_NAMES = {"system idle process"}
 IGNORE_PIDS = {0}
@@ -1378,13 +1394,12 @@ def problems_for(pd: dict) -> list:
 
 
 def is_eligible(pd: dict) -> tuple:
+    # Interactive: the user may close ANY non-critical app they choose.
     if pd["name"] in BLOCKLIST:
         return False, "protected (critical system process)"
-    if pd["hung"] and KILL_HUNG:
+    if pd["hung"]:
         return True, "not responding"
-    if pd["name"] in ALLOWLIST and pd["mem_mb"] >= HEAVY_MEM_MB:
-        return True, f"allowlisted & using {pd['mem_mb']:.0f} MB"
-    return False, "not on allowlist"
+    return True, "you can close it"
 
 
 def close_hung_background(cfg: dict) -> tuple:
@@ -1972,9 +1987,121 @@ def free_ram_now(cfg: dict) -> None:
         return
     mem = psutil.virtual_memory()
     freed_txt = f"{_mb(res['freed']):.0f} MB"
-    print(f"  {_color('[DONE]', GREEN)} Freed {_color(freed_txt, GREEN)} "
+    print(f"  {_color('[DONE]', GREEN)} Freed {_color(freed_txt, GREEN)} of cached RAM "
           f"({', '.join(res['actions'])}). "
           f"RAM now {mem.percent:.1f} % ({_gb(mem.available):.2f} GB free).")
+    if res["freed"] < 150 * 1024 * 1024 and mem.percent >= PRESSURE_PERCENT:
+        print(f"  {_color('Note', YELLOW)}: most of your RAM is actively used by open "
+              f"apps, not cache -")
+        print("  freeing cache can't reduce that. To lower RAM usage, CLOSE heavy apps")
+        print("  via 'Close an app' (M4).")
+
+
+def _close_pid(pd: dict) -> bool:
+    """Terminate a process by its dict {pid, name}. Never raises."""
+    try:
+        p = psutil.Process(pd["pid"])
+        p.terminate()
+        try:
+            p.wait(timeout=3)
+        except psutil.TimeoutExpired:
+            p.kill()
+            p.wait(timeout=3)
+        print(f"  {_color('[CLOSED]', GREEN)} {pd['name']} (PID {pd['pid']})")
+        log(f"MANUAL: closed {pd['name']} (PID {pd['pid']})", to_console=False)
+        return True
+    except psutil.NoSuchProcess:
+        print("  Already gone.")
+    except psutil.AccessDenied:
+        print(f"  {_color('[DENIED]', YELLOW)} Access denied - run as Administrator.")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [ERROR] {exc}")
+    return False
+
+
+def run_process_manager() -> None:
+    """Mini task-manager: list top memory-using apps and close any (non-critical)."""
+    while True:
+        hang = get_window_hang_map()
+        procs = []
+        for p in psutil.process_iter(["pid", "name", "memory_info"]):
+            try:
+                mi = p.info["memory_info"]
+                if not mi:
+                    continue
+                name = (p.info["name"] or "?").lower()
+                pid = p.info["pid"]
+                if pid in IGNORE_PIDS or name in IGNORE_NAMES:
+                    continue
+                procs.append({"pid": pid, "name": name,
+                              "mem_mb": mi.rss / (1024 * 1024),
+                              "hung": hang.get(pid, {}).get("hung", False)})
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        procs.sort(key=lambda x: x["mem_mb"], reverse=True)
+        top = procs[:20]
+        mem = psutil.virtual_memory()
+
+        print()
+        _title("CLOSE AN APP")
+        print(f"  RAM {_ram_bar(mem.percent)} - to lower it, close apps you don't need.")
+        print("  Type a number to close that program (asks first). "
+              f"{_color('Protected', YELLOW)} = can't close.")
+        _hr()
+        print(_color(f"    {'#':>2}  {'PROGRAM':<24}{'PID':>7}{'MEM(MB)':>9}   STATUS", BOLD))
+        for i, pd in enumerate(top, start=1):
+            if pd["hung"]:
+                status = _color("NOT RESPONDING", RED)
+            elif pd["name"] in BLOCKLIST:
+                status = _color("protected", YELLOW)
+            else:
+                status = ""
+            print(f"    {i:>2}. {pd['name'][:23]:<24}{pd['pid']:>7}{pd['mem_mb']:>9.0f}   {status}")
+        _hr()
+        print("  [number] = close app     [R] = refresh     [Q] = back")
+        try:
+            choice = input("  Choose: ").strip().lower()
+        except EOFError:
+            return
+        if choice in ("q", ""):
+            return
+        if choice == "r":
+            continue
+        if choice.isdigit():
+            i = int(choice)
+            if 1 <= i <= len(top):
+                pd = top[i - 1]
+                if pd["name"] in BLOCKLIST:
+                    print(f"  {_color('[BLOCKED]', YELLOW)} {pd['name']} is a critical "
+                          f"system process and won't be closed.")
+                    continue
+                label = f"{pd['name']} (PID {pd['pid']}, {pd['mem_mb']:.0f} MB)"
+                if pd["hung"]:
+                    label += " [NOT RESPONDING]"
+                if _confirm(f"  Close {label}? [y/n]: "):
+                    _close_pid(pd)
+            continue
+        print("  Unrecognized input.")
+
+
+def restart_explorer() -> None:
+    """Restart Windows Explorer - fixes a hung taskbar / desktop."""
+    import subprocess
+    print("  This closes and reopens Windows Explorer. Your taskbar will blink and")
+    print("  any open File Explorer windows will close (your other apps are safe).")
+    if not _confirm("  Restart Windows Explorer now? [y/n]: "):
+        print("  Cancelled.")
+        return
+    print("  Restarting Windows Explorer...")
+    try:
+        subprocess.run(["taskkill", "/F", "/IM", "explorer.exe"],
+                       capture_output=True, text=True)
+        time.sleep(1.0)
+        subprocess.Popen("explorer.exe")
+        print(f"  {_color('[DONE]', GREEN)} Explorer restarted - give it a few seconds.")
+        log("EXPLORER: restarted by user", to_console=False)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [ERROR] {exc}")
 
 
 def run_settings() -> None:
@@ -2163,6 +2290,29 @@ def view_history(limit: int = 15) -> None:
         print(f"    {when:<20}{disk + ' MB':>10}{ram + ' MB':>10}{hung:>7}")
 
 
+def _show_about() -> None:
+    """Show version, license, and support info."""
+    _clear()
+    _brand_header()
+    _title("ABOUT")
+    print(f"  {APP_NAME}  v{APP_VERSION}")
+    print(f"  {APP_TAGLINE}")
+    print()
+    print("  A small, honest Windows optimizer - it only ever does")
+    print("  what YOU switch on, and every action is reversible.")
+    print()
+    print(f"  {_color('Version', BOLD)}   {APP_VERSION}")
+    print(f"  {_color('License', BOLD)}   MIT - free and open source")
+    print(f"  {_color('Platform', BOLD)}  Windows 10 / 11")
+    print(f"  {_color('Support', BOLD)}   https://observerly1.gumroad.com/l/ialzp")
+    print()
+    print("  Made with Python + psutil, packaged with PyInstaller.")
+    print()
+    print("  Closing a frozen app or restarting can lose unsaved work.")
+    print("  The tool always asks first - use your judgement.")
+    _hr()
+
+
 def _reclaimable_mb() -> float:
     """Total junk (MB) that could be cleaned right now, across all categories."""
     cfg = load_config()
@@ -2251,6 +2401,8 @@ def run_menu() -> None:
         print(f"    {_color('M1', BOLD)}  Scan & fix now     (health + free RAM + cleanup)")
         print(f"    {_color('M2', BOLD)}  Free RAM now")
         print(f"    {_color('M3', BOLD)}  Startup programs   (speed up boot)")
+        print(f"    {_color('M4', BOLD)}  Close an app       (mini task manager)")
+        print(f"    {_color('M5', BOLD)}  Restart Explorer   (fix a hung taskbar)")
         print(_color("  AUTOMATION", BOLD))
         print(f"    {_color('A1', BOLD)}  Settings           (choose what to clean)")
         print(f"    {_color('A2', BOLD)}  Background schedule    ->  turn {'OFF' if state == 'enabled' else 'ON'}")
@@ -2261,6 +2413,7 @@ def run_menu() -> None:
         print(_color("  INFO", BOLD))
         print(f"    {_color('I1', BOLD)}  View recent activity log")
         print(f"    {_color('I2', BOLD)}  Background run history")
+        print(f"    {_color('I3', BOLD)}  About / version")
         print()
         print(f"    {_color('Q', BOLD)}   Quit")
         _hr()
@@ -2277,6 +2430,10 @@ def run_menu() -> None:
             free_ram_now(load_config())
         elif choice == "m3":
             run_startup_manager()
+        elif choice == "m4":
+            run_process_manager()
+        elif choice == "m5":
+            restart_explorer()
         elif choice == "a1":
             run_settings()
         elif choice == "a2":
@@ -2294,6 +2451,8 @@ def run_menu() -> None:
             view_log()
         elif choice == "i2":
             view_history()
+        elif choice == "i3":
+            _show_about()
         elif choice in ("q", ""):
             print("  Goodbye.")
             return
@@ -2314,6 +2473,8 @@ def main() -> None:
     parser.add_argument("--settings", action="store_true")
     parser.add_argument("--free-ram", action="store_true")
     parser.add_argument("--startup", action="store_true")
+    parser.add_argument("--tasks", action="store_true")
+    parser.add_argument("--restart-explorer", action="store_true")
     parser.add_argument("--defender", action="store_true")
     parser.add_argument("--services", action="store_true")
     parser.add_argument("--scheduled-restart", action="store_true")
@@ -2349,6 +2510,14 @@ def main() -> None:
     if args.startup:
         INTERACTIVE = True
         run_startup_manager()
+        return
+    if args.tasks:
+        INTERACTIVE = True
+        run_process_manager()
+        return
+    if getattr(args, "restart_explorer", False):
+        INTERACTIVE = True
+        restart_explorer()
         return
     if args.defender:
         INTERACTIVE = True
