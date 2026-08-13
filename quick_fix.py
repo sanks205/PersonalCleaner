@@ -39,8 +39,16 @@ except ImportError:
     time.sleep(5)
     sys.exit(1)
 
-# Free, open-source build. The paid PersonalCleanerPro (on Gumroad) is a
-# separate commercial build; this repository contains only the free tool.
+# PersonalCleaner v1.2 (B1 unified build).
+# One exe: core maintenance is free; Automation (A2/A3) and Pro tune-ups
+# (P1/P2) are locked until a valid PersonalCleanerPro license key is entered
+# via L1. Keys are issued on Gumroad and validated offline (HMAC-SHA256).
+try:
+    import licensing
+    COMMERCIAL = True
+except ImportError:
+    licensing = None
+    COMMERCIAL = False
 
 
 # --------------------------------------------------------------------------- #
@@ -76,7 +84,7 @@ DEFAULT_DAILY_TIME = "03:00"
 
 APP_NAME = "PersonalCleaner"
 APP_TAGLINE = "Honest Windows Optimizer"
-APP_VERSION = "1.1"
+APP_VERSION = "1.2"
 
 # ASCII-art logo (figlet "standard" font), stacked Personal / Cleaner.
 BANNER = [
@@ -2290,6 +2298,52 @@ def view_history(limit: int = 15) -> None:
         print(f"    {when:<20}{disk + ' MB':>10}{ram + ' MB':>10}{hung:>7}")
 
 
+def _licensed_or_free() -> bool:
+    """True in the free build, or in the commercial build with a valid license."""
+    if not COMMERCIAL:
+        return True
+    return licensing.is_licensed()
+
+
+def _license_summary() -> str:
+    """Short license line shown on the menu (Commercial build only)."""
+    if not COMMERCIAL:
+        return ""
+    st = licensing.load_status()
+    if st["licensed"]:
+        return _color("Licensed" + (f" until {st['expiry']}" if st["expiry"] else ""),
+                      GREEN)
+    return _color("UNLICENSED - basic mode", RED)
+
+
+def run_license() -> None:
+    """Show license status and let the user enter a key (Commercial build)."""
+    _clear()
+    _brand_header()
+    _title("LICENSE")
+    st = licensing.load_status()
+    mid = licensing.machine_id()
+    print(f"  Machine ID : {mid}")
+    print(f"  Status     : {st['message']}")
+    print()
+    print("  A valid license unlocks Automation (A2/A3) and Pro tune-ups (P1/P2).")
+    print("  Enter a license key below, or leave blank to cancel.")
+    print()
+    try:
+        key = input("  License key: ").strip()
+    except EOFError:
+        return
+    if not key:
+        print("  No key entered.")
+        return
+    st = licensing.install_key(key)
+    print()
+    print(f"  {st['message']}")
+    if st["licensed"]:
+        print("  License saved and active.")
+    _hr()
+
+
 def _show_about() -> None:
     """Show version, license, and support info."""
     _clear()
@@ -2304,6 +2358,11 @@ def _show_about() -> None:
     print(f"  {_color('Version', BOLD)}   {APP_VERSION}")
     print(f"  {_color('License', BOLD)}   MIT - free and open source")
     print(f"  {_color('Platform', BOLD)}  Windows 10 / 11")
+    if COMMERCIAL:
+        st = licensing.load_status()
+        print(f"  {_color('Edition', BOLD)}   Commercial (Pro)")
+        print(f"  {_color('Machine', BOLD)}   {licensing.machine_id()}")
+        print(f"  {_color('Status', BOLD)}   {st['message']}")
     print(f"  {_color('Support', BOLD)}   https://observerly1.gumroad.com/l/ialzp")
     print()
     print("  Made with Python + psutil, packaged with PyInstaller.")
@@ -2389,6 +2448,8 @@ def run_menu() -> None:
               f"{len(psutil.pids())} procs   |   Auto: {state_lbl}")
         rc_txt = _color(f"~{reclaimable:.0f} MB", GREEN if reclaimable >= 1 else "")
         print(f"  Reclaimable junk: {rc_txt}")
+        if COMMERCIAL:
+            print(f"  License: {_license_summary()}")
         _hr()
         hints = _menu_hints(mem, state, reclaimable, load_config())
         if hints:
@@ -2414,6 +2475,8 @@ def run_menu() -> None:
         print(f"    {_color('I1', BOLD)}  View recent activity log")
         print(f"    {_color('I2', BOLD)}  Background run history")
         print(f"    {_color('I3', BOLD)}  About / version")
+        if COMMERCIAL:
+            print(f"    {_color('L1', BOLD)}  License status / enter key")
         print()
         print(f"    {_color('Q', BOLD)}   Quit")
         _hr()
@@ -2437,22 +2500,35 @@ def run_menu() -> None:
         elif choice == "a1":
             run_settings()
         elif choice == "a2":
-            if state == "enabled":
+            if not _licensed_or_free():
+                print("  Automation needs a valid license (Pro).  Enter it with L1.")
+            elif state == "enabled":
                 disable_scheduler()
             else:
                 enable_scheduler()
         elif choice == "a3":
-            run_restart_settings(load_config())
+            if not _licensed_or_free():
+                print("  Automation needs a valid license (Pro).  Enter it with L1.")
+            else:
+                run_restart_settings(load_config())
         elif choice == "p1":
-            run_defender_manager()
+            if not _licensed_or_free():
+                print("  Pro tune-ups need a valid license.  Enter it with L1.")
+            else:
+                run_defender_manager()
         elif choice == "p2":
-            run_service_manager()
+            if not _licensed_or_free():
+                print("  Pro tune-ups need a valid license.  Enter it with L1.")
+            else:
+                run_service_manager()
         elif choice == "i1":
             view_log()
         elif choice == "i2":
             view_history()
         elif choice == "i3":
             _show_about()
+        elif choice == "l1":
+            run_license()
         elif choice in ("q", ""):
             print("  Goodbye.")
             return
