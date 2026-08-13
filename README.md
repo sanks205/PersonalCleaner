@@ -91,8 +91,8 @@ with no key. The four Pro features are **locked until you enter a license key.**
 4. Open the app → L1 → paste the key → A2/A3/P1/P2 are unlocked
 ```
 
-- **Pro:** [$15/year per PC](https://observerly1.gumroad.com/l/ialzp) — 1 key, 1 PC,
-  100% offline, machine-locked. No subscription games, no cloud, no phone-home.
+- **Pro:** [one-time fee · 1-year key per PC](https://observerly1.gumroad.com/l/ialzp) — 1 key, 1 PC,
+  valid 1 year, 100% offline, machine-locked. No subscription games, no cloud, no phone-home.
 
 ---
 
