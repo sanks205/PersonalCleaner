@@ -211,6 +211,23 @@ security. Instead:
 
 ---
 
+## 🛡️ Antivirus scan (VirusTotal)
+
+We scan **every release** with [VirusTotal](https://www.virustotal.com) before
+publishing — no exceptions.
+
+- **v1.2 (current):** `0 / 67` engines flag it. Clean. ✅
+- **Honesty note:** an earlier build once showed `1 / 71` — the single hit was
+  **Microsoft Defender**. That's a known false positive for PyInstaller / unsigned
+  Python apps (the bundler wraps a legit script; some AV heuristics trip on it).
+  It is **not** malware, and later builds came back clean.
+
+Unsigned software always draws extra scrutiny from AV and SmartScreen. That's
+exactly what a code-signed build (funded by Pro) removes. Until then: scan the
+exe yourself, read the source, and decide.
+
+---
+
 ## 🧪 Try to Break PersonalCleaner
 
 We'd rather users find a problem and report it than blindly trust us.
