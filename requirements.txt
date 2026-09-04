@@ -1,5 +1,6 @@
 # Runtime + build dependencies for PersonalCleaner
 psutil          # system/process metrics (bundled into the exe)
+PyQt6           # GUI framework (gui.py)
 pyinstaller     # builds the standalone .exe
 
 # Optional: only needed to regenerate the app icon (icon.ico is already included)
