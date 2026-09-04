@@ -39,10 +39,9 @@ except ImportError:
     time.sleep(5)
     sys.exit(1)
 
-# PersonalCleaner v1.2 (B1 unified build).
-# One exe: core maintenance is free; Automation (A2/A3) and Pro tune-ups
-# (P1/P2) are locked until a valid PersonalCleanerPro license key is entered
-# via L1. Keys are issued on Gumroad and validated offline (HMAC-SHA256).
+# Commercial build: if licensing.py is bundled (PersonalCleanerPro.exe), a valid
+# license key is required for the Pro/automation features. The free MIT build
+# does NOT bundle licensing.py, so it always runs unrestricted.
 try:
     import licensing
     COMMERCIAL = True
@@ -84,7 +83,7 @@ DEFAULT_DAILY_TIME = "03:00"
 
 APP_NAME = "PersonalCleaner"
 APP_TAGLINE = "Honest Windows Optimizer"
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 
 # ASCII-art logo (figlet "standard" font), stacked Personal / Cleaner.
 BANNER = [
@@ -182,6 +181,7 @@ DEFAULT_CONFIG = {
         "warn_seconds": 120,         # warning countdown before restart
     },
     "notifications": True,           # show a toast after each background run
+    "tray_on_close": False,          # hide to tray instead of quitting when X is clicked
     "services": {},                  # original start modes captured before tuning
 }
 
@@ -414,6 +414,10 @@ def load_config() -> dict:
                 cfg["restart"][key] = saved["restart"][key]
     if isinstance(saved.get("notifications"), bool):
         cfg["notifications"] = saved["notifications"]
+    if isinstance(saved.get("tray_on_close"), bool):
+        cfg["tray_on_close"] = saved["tray_on_close"]
+    if isinstance(saved.get("theme"), str) and saved["theme"] in ("system", "light", "dark"):
+        cfg["theme"] = saved["theme"]
     if isinstance(saved.get("services"), dict):
         cfg["services"] = {str(k): str(v) for k, v in saved["services"].items()}
     return cfg
@@ -499,6 +503,11 @@ def clean_location(base: str, dry_run: bool, min_age: float) -> tuple:
         path = os.path.join(base, name)
         # Boundary guard: never act outside the target folder.
         if not os.path.abspath(path).startswith(base + os.sep):
+            continue
+        # Never touch our own PyInstaller runtime temp (_MEIxxxx / _MEIPASS),
+        # or we'd count (and fail to delete) the running EXE's own files.
+        meipass = getattr(sys, "_MEIPASS", "")
+        if "_MEI" in name or (meipass and os.path.abspath(path).startswith(meipass)):
             continue
         try:
             if _age_hours(path) < min_age:
@@ -863,6 +872,68 @@ def _read_startup_folder(path: str, hive, source: str) -> list:
     return out
 
 
+def _exe_path_from_command(cmd):
+    """Extract the first .exe path referenced in a startup command."""
+    if not cmd:
+        return ""
+    import re
+    m = re.search(r'"([^"]+\.exe)"|\b([A-Za-z]:\\[^\s"*?<>|]+\.exe)', cmd, re.IGNORECASE)
+    if not m:
+        return ""
+    return m.group(1) or m.group(2)
+
+
+def _file_publisher(cmd):
+    """Best-effort publisher (CompanyName) from the executable's version info."""
+    import ctypes
+    path = _exe_path_from_command(cmd)
+    if not path or not os.path.exists(path):
+        return ""
+    try:
+        ver = ctypes.windll.version
+        size = ver.GetFileVersionInfoSizeW(path, None)
+        if not size:
+            return ""
+        buf = ctypes.create_string_buffer(size)
+        if not ver.GetFileVersionInfoW(path, 0, size, buf):
+            return ""
+
+        class LANGANDCODEPAGE(ctypes.Structure):
+            _fields_ = [("wLanguage", ctypes.wintypes.WORD),
+                        ("wCodePage", ctypes.wintypes.WORD)]
+
+        lpc = ctypes.POINTER(LANGANDCODEPAGE)()
+        lplen = ctypes.wintypes.UINT()
+        if not ver.VerQueryValueW(buf, "\\VarFileInfo\\Translation",
+                                  ctypes.byref(lpc), ctypes.byref(lplen)):
+            return ""
+        lang = f"{lpc[0].wLanguage:04x}{lpc[0].wCodePage:04x}"
+        cp = ctypes.create_unicode_buffer(256)
+        cplen = ctypes.wintypes.UINT()
+        if not ver.VerQueryValueW(buf, f"\\StringFileInfo\\{lang}\\CompanyName",
+                                  ctypes.byref(cp), ctypes.byref(cplen)):
+            return ""
+        return cp.value.strip()
+    except Exception:
+        return ""
+
+
+def _startup_impact(cmd):
+    """Rough startup-impact estimate from executable size (not a real measurement)."""
+    path = _exe_path_from_command(cmd)
+    if not path or not os.path.exists(path):
+        return "Not measured"
+    try:
+        sz = os.path.getsize(path)
+    except Exception:
+        return "Not measured"
+    if sz > 80 * 1024 * 1024:
+        return "High"
+    if sz > 10 * 1024 * 1024:
+        return "Medium"
+    return "Low"
+
+
 def enumerate_startup() -> list:
     """List startup programs across Run keys and Startup folders."""
     import winreg
@@ -878,6 +949,10 @@ def enumerate_startup() -> list:
                                   r"Microsoft\Windows\Start Menu\Programs\Startup")
     items += _read_startup_folder(user_startup, winreg.HKEY_CURRENT_USER, "Startup-User")
     items += _read_startup_folder(common_startup, winreg.HKEY_LOCAL_MACHINE, "Startup-Common")
+    for it in items:
+        cmd = it.get("command", "") or ""
+        it["publisher"] = _file_publisher(cmd)
+        it["impact"] = _startup_impact(cmd)
     return items
 
 
@@ -1670,7 +1745,8 @@ def scheduler_state() -> str:
     import subprocess
     try:
         res = subprocess.run(["schtasks", "/Query", "/TN", f"{TASK_PREFIX}-Idle",
-                              "/FO", "LIST"], capture_output=True, text=True)
+                              "/FO", "LIST"], capture_output=True, text=True,
+                             creationflags=0x08000000)
     except Exception:  # noqa: BLE001
         return "absent"
     if res.returncode != 0:
@@ -1684,7 +1760,8 @@ def enable_scheduler() -> None:
         install_scheduler(DEFAULT_IDLE_MINUTES, DEFAULT_DAILY_TIME)
     for name in _task_names():
         subprocess.run(["schtasks", "/Change", "/TN", name, "/ENABLE"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True,
+                       creationflags=0x08000000)
     print(f"  {_color('[ON]', GREEN)} Background schedule enabled "
           f"(idle {DEFAULT_IDLE_MINUTES} min + daily {DEFAULT_DAILY_TIME}).")
     cfg = load_config()
@@ -1700,7 +1777,8 @@ def disable_scheduler() -> None:
     import subprocess
     for name in _task_names():
         subprocess.run(["schtasks", "/Change", "/TN", name, "/DISABLE"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True,
+                       creationflags=0x08000000)
     print(f"  {_color('[OFF]', YELLOW)} Background schedule paused.")
 
 
@@ -1739,7 +1817,8 @@ def restart_task_state() -> str:
     import subprocess
     try:
         res = subprocess.run(["schtasks", "/Query", "/TN", RESTART_TASK],
-                             capture_output=True, text=True)
+                             capture_output=True, text=True,
+                             creationflags=0x08000000)
         return "present" if res.returncode == 0 else "absent"
     except Exception:  # noqa: BLE001
         return "absent"
@@ -1752,7 +1831,8 @@ def enable_restart(day: str, time_str: str) -> bool:
            "/TR", f'"{exe}" --scheduled-restart',
            "/SC", "WEEKLY", "/D", day, "/ST", time_str, "/F"]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True)
+        res = subprocess.run(cmd, capture_output=True, text=True,
+                             creationflags=0x08000000)
         return res.returncode == 0
     except Exception:  # noqa: BLE001
         return False
@@ -1761,7 +1841,8 @@ def enable_restart(day: str, time_str: str) -> bool:
 def disable_restart() -> None:
     import subprocess
     subprocess.run(["schtasks", "/Delete", "/TN", RESTART_TASK, "/F"],
-                   capture_output=True, text=True)
+                   capture_output=True, text=True,
+                   creationflags=0x08000000)
 
 
 def run_scheduled_restart() -> None:
@@ -1893,7 +1974,8 @@ def install_scheduler(idle_min: int, daily_time: str) -> None:
     _hr()
     for cmd, desc in jobs:
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True,
+                                 creationflags=0x08000000)
             if res.returncode == 0:
                 print(f"  {_color('[OK]', GREEN)} {desc} task created.")
             else:
@@ -1913,7 +1995,8 @@ def uninstall_scheduler() -> None:
         name = f"{TASK_PREFIX}-{suffix}"
         try:
             res = subprocess.run(["schtasks", "/Delete", "/TN", name, "/F"],
-                                 capture_output=True, text=True)
+                                 capture_output=True, text=True,
+                                 creationflags=0x08000000)
             ok = res.returncode == 0
             tag = _color('[OK]', GREEN) if ok else _color('[--]', YELLOW)
             print(f"  {tag} {name}: "
