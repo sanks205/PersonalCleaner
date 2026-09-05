@@ -25,6 +25,16 @@ MB = 1024 * 1024
 # Theme tokens (Fluent / Windows 11)
 # --------------------------------------------------------------------------- #
 LIGHT = {
+    "app_bg": "#EBEFFF", "surface": "#FFFFFF", "surface_alt": "#E6E9FF",
+    "nav_bg": "#F8F9FF", "text": "#0B0B0B", "text_secondary": "#4A5568",
+    "border": "#D6DCFF", "border_strong": "#B8C0E0",
+    "accent": "#0F6CBD", "accent_hover": "#115EA3", "accent_pressed": "#0C3B5E",
+    "on_accent": "#FFFFFF", "selected_bg": "#E0EDFF", "hover_bg": "#E8ECFF",
+    "disabled_bg": "#EEF0FF", "disabled_text": "#94A3B8",
+    "success": "#0E7A0E", "warning": "#92400E", "error": "#C53030",
+}
+# System default — keep original 1.2 colors (no background tint, grey #F3F3F3)
+SYSTEM = {
     "app_bg": "#F3F3F3", "surface": "#FFFFFF", "surface_alt": "#FAFAFA",
     "nav_bg": "#F7F7F7", "text": "#1B1B1B", "text_secondary": "#5C5C5C",
     "border": "#E0E0E0", "border_strong": "#C8C8C8",
@@ -34,13 +44,13 @@ LIGHT = {
     "success": "#107C10", "warning": "#9D5D00", "error": "#C42B1C",
 }
 DARK = {
-    "app_bg": "#1F1F1F", "surface": "#2B2B2B", "surface_alt": "#252525",
-    "nav_bg": "#232323", "text": "#FFFFFF", "text_secondary": "#B0B0B0",
-    "border": "#3B3B3B", "border_strong": "#4A4A4A",
-    "accent": "#378CF0", "accent_hover": "#4CC2FF", "accent_pressed": "#2A8DEB",
-    "on_accent": "#FFFFFF", "selected_bg": "#26405C", "hover_bg": "#383838",
-    "disabled_bg": "#2A2A2A", "disabled_text": "#6A6A6A",
-    "success": "#92C353", "warning": "#FDE300", "error": "#F1707B",
+    "app_bg": "#0F1419", "surface": "#1A202C", "surface_alt": "#1E293B",
+    "nav_bg": "#111827", "text": "#F8FAFC", "text_secondary": "#94A3B8",
+    "border": "#1E293B", "border_strong": "#334155",
+    "accent": "#60A5FA", "accent_hover": "#93C5FD", "accent_pressed": "#3B82F6",
+    "on_accent": "#0F172A", "selected_bg": "#1E3A5F", "hover_bg": "#334155",
+    "disabled_bg": "#1E293B", "disabled_text": "#64748B",
+    "success": "#4ADE80", "warning": "#FDE68A", "error": "#FCA5A5",
 }
 TOK = dict(LIGHT)
 CUR_THEME = "light"
@@ -49,18 +59,26 @@ CUR_THEME = "light"
 def set_theme(name):
     global TOK, CUR_THEME
     CUR_THEME = name
-    TOK = dict(DARK if name == "dark" else LIGHT)
+    if name == "system":
+        TOK = dict(SYSTEM)
+    elif name == "dark":
+        TOK = dict(DARK)
+    else:
+        TOK = dict(LIGHT)
 
 
 def _system_theme():
+    # Returns "system" so System uses SYSTEM tokens (original 1.2 grey #F3F3F3, no tint)
+    # Light uses LIGHT (#EBEFFF bluish), Dark uses DARK — so all 3 dropdown options are distinct
     try:
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
             r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
         ) as k:
-            return "light" if winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 1 else "dark"
+            app_light = winreg.QueryValueEx(k, "AppsUseLightTheme")[0] == 1
+            return "system"
     except Exception:
-        return "light"
+        return "system"
 
 
 def _res(name):
@@ -116,6 +134,14 @@ QPushButton[kind="icon"] { background: transparent; border: none; border-radius:
 QPushButton[kind="icon"]:hover { background: @HOVER_BG@; }
 QPushButton[kind="icon"]:pressed { background: @BORDER@; }
 QPushButton:focus { outline: none; }
+QMessageBox { background: @SURFACE@; border: 1px solid @BORDER@; }
+QMessageBox QLabel { color: @TEXT@; background: transparent; }
+QMessageBox QPushButton { min-width: 80px; }
+QInputDialog { background: @SURFACE@; border: 1px solid @BORDER@; }
+QInputDialog QLabel { color: @TEXT@; }
+QInputDialog QLineEdit { background: @SURFACE@; border: 1px solid @BORDER_STRONG@; color: @TEXT@; }
+QInputDialog QComboBox { background: @SURFACE@; border: 1px solid @BORDER_STRONG@; }
+QInputDialog QPushButton { min-width: 80px; }
 
 #PageTitle { font-size: 26px; font-weight: 700; color: @TEXT@; }
 #PageSub { font-size: 13px; color: @TEXT_SECONDARY@; }
@@ -139,11 +165,13 @@ QCheckBox::indicator:hover { border: 1px solid @ACCENT@; }
 QCheckBox::indicator:checked { background: @ACCENT@; border: 1px solid @ACCENT@; image: @CHECK@; }
 QCheckBox::indicator:disabled { background: @DISABLED_BG@; border: 1px solid @BORDER@; }
 
-QTableWidget { background: @SURFACE@; border: 1px solid @BORDER@; border-radius: 8px; gridline-color: @BORDER@; font-size: 13px; }
+QTableWidget { background: @SURFACE@; border: 1px solid @BORDER@; border-radius: 8px; gridline-color: @BORDER@; font-size: 13px; outline: none; }
+QTableWidget:focus { outline: none; }
 QHeaderView::section { background: @SURFACE_ALT@; color: @TEXT_SECONDARY@; border: none; border-bottom: 1px solid @BORDER@; border-right: 1px solid @BORDER@; padding: 9px 10px; font-weight: 600; }
-QTableWidget::item { padding: 7px 10px; border: none; border-right: 1px solid @BORDER@; border-bottom: 1px solid @BORDER@; }
-QTableWidget::item:selected { background: @SELECTED_BG@; color: @TEXT@; }
-QTableWidget::item:focus { border: none; }
+QTableWidget::item { padding: 7px 10px; border: none; border-right: 1px solid @BORDER@; border-bottom: 1px solid @BORDER@; outline: none; }
+QTableWidget::item:selected { background: @SELECTED_BG@; color: @ACCENT@; outline: none; }
+QTableWidget::item:selected:focus { background: @ACCENT@; color: @ON_ACCENT@; outline: none; }
+QTableWidget::item:focus { border: none; outline: none; }
 
 QMenu { background: @SURFACE@; color: @TEXT@; border: 1px solid @BORDER@; border-radius: 8px; padding: 6px; }
 QMenu::item { padding: 8px 22px 8px 14px; border-radius: 4px; background: transparent; color: @TEXT@; }
@@ -734,7 +762,7 @@ class PCApp(QMainWindow):
         card.value_label = val
         return card
 
-    # ---- Dashboard ------------------------------------------------------- #
+    # ---- Dashboard: 4 separate Fluent sections (no mix, no overlap) ---- #
     def _build_dashboard(self):
         sc, root, v = self._page(
             "Dashboard", "Overview of your system cleanliness and quick actions."
@@ -749,33 +777,207 @@ class PCApp(QMainWindow):
         cards.addWidget(self.stat_start)
         v.addLayout(cards)
 
-        btns = QHBoxLayout()
-        btns.setSpacing(12)
-        self.btn_scan = FluentButton("Scan", "accent")
+        # Section 1 — Junk cleanup (own card, own output)
+        junk_card = Card()
+        jl = QVBoxLayout(junk_card)
+        jl.setContentsMargins(18, 14, 18, 14)
+        jl.setSpacing(10)
+        jl.addWidget(QLabel("Junk cleanup"))
+        sub_j = QLabel("Scans temp / WER / Recycle Bin older than 24h. Preview first, then clean.")
+        sub_j.setObjectName("PageSub")
+        jl.addWidget(sub_j)
+        btns_j = QHBoxLayout()
+        btns_j.setSpacing(10)
+        self.btn_scan = FluentButton("Scan junk", "accent")
+        self.btn_scan.setToolTip("Scan temp folders and estimate reclaimable junk (nothing deleted).")
         self.btn_scan.clicked.connect(self._scan)
-        self.btn_clean = FluentButton("Clean now", "default")
+        self.btn_clean = FluentButton("Clean junk now", "default")
+        self.btn_clean.setToolTip("Delete ticked junk categories (see Clean tab).")
         self.btn_clean.clicked.connect(self._clean)
         self.btn_clean.setEnabled(False)
-        btns.addWidget(self.btn_scan)
-        btns.addWidget(self.btn_clean)
-        btns.addStretch(1)
-        v.addLayout(btns)
+        btns_j.addWidget(self.btn_scan)
+        btns_j.addWidget(self.btn_clean)
+        btns_j.addStretch(1)
+        jl.addLayout(btns_j)
+        # junk output stays inside this card
+        self.junk_log = QPlainTextEdit()
+        self.junk_log.setReadOnly(True)
+        self.junk_log.setPlaceholderText("Click \"Scan junk\" to preview reclaimable space. Output stays here.")
+        self.junk_log.setMinimumHeight(90)
+        jl.addWidget(self.junk_log)
+        hl_j = QHBoxLayout()
+        clr_j = FluentButton("Clear", "default")
+        clr_j.setMinimumHeight(28)
+        clr_j.clicked.connect(lambda: self.junk_log.clear())
+        hl_j.addWidget(clr_j)
+        hl_j.addStretch(1)
+        jl.addLayout(hl_j)
+        v.addWidget(junk_card)
 
-        lab = QLabel("Activity")
-        lab.setObjectName("SectionLabel")
-        v.addWidget(lab)
+        # Section 2 — App health (M1, separate output)
+        health_card = Card()
+        hl = QVBoxLayout(health_card)
+        hl.setContentsMargins(18, 14, 18, 14)
+        hl.setSpacing(10)
+        hl.addWidget(QLabel("App health"))
+        sub_h = QLabel("Samples CPU ~1s, checks each app for Not Responding / HIGH MEM / HIGH CPU.")
+        sub_h.setObjectName("PageSub")
+        hl.addWidget(sub_h)
+        btns_h = QHBoxLayout()
+        btns_h.setSpacing(10)
+        self.btn_scan_health = FluentButton("Scan app health", "default")
+        self.btn_scan_health.setToolTip("Check Not Responding / HIGH MEM / HIGH CPU; offer to close.")
+        self.btn_scan_health.clicked.connect(self._scan_health)
+        btns_h.addWidget(self.btn_scan_health)
+        btns_h.addStretch(1)
+        hl.addLayout(btns_h)
+        self.health_result = QLabel("Click \"Scan app health\" to check for misbehaving apps.")
+        self.health_result.setObjectName("PageSub")
+        self.health_result.setWordWrap(True)
+        hl.addWidget(self.health_result)
+        v.addWidget(health_card)
+
+        # Section 3 — I1 Activity (real cleaner.log tail)
+        log_card = Card()
+        ll = QVBoxLayout(log_card)
+        ll.setContentsMargins(18, 14, 18, 14)
+        ll.setSpacing(8)
+        ll.addWidget(QLabel("Activity log"))
+        sub_l = QLabel("Tail of cleaner.log on disk (kept ~7 days, 3000 lines cap).")
+        sub_l.setObjectName("PageSub")
+        ll.addWidget(sub_l)
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
-        self.log.setMinimumHeight(160)
-        v.addWidget(self.log, 1)
-        clear = FluentButton("Clear log", "default")
-        clear.setMinimumHeight(32)
+        self.log.setPlaceholderText("Activity from cleaner.log will appear here. Click Refresh below.")
+        self.log.setMinimumHeight(120)
+        ll.addWidget(self.log)
+        hlog = QHBoxLayout()
+        hlog.setSpacing(10)
+        clear = FluentButton("Clear display", "default")
+        clear.setMinimumHeight(28)
         clear.clicked.connect(lambda: self.log.clear())
-        hclear = QHBoxLayout()
-        hclear.addWidget(clear)
-        hclear.addStretch(1)
-        v.addLayout(hclear)
+        self.btn_refresh_log = FluentButton("Refresh log file", "default")
+        self.btn_refresh_log.setToolTip("Reload the last 40 lines from cleaner.log on disk.")
+        self.btn_refresh_log.setMinimumHeight(28)
+        self.btn_refresh_log.clicked.connect(self._refresh_log)
+        hlog.addWidget(clear)
+        hlog.addWidget(self.btn_refresh_log)
+        hlog.addStretch(1)
+        ll.addLayout(hlog)
+        v.addWidget(log_card)
+
+        # Section 4 — I2 Background run history (AUTO: parsed)
+        hist_card = Card()
+        hl2 = QVBoxLayout(hist_card)
+        hl2.setContentsMargins(18, 14, 18, 14)
+        hl2.setSpacing(8)
+        hl2.addWidget(QLabel("Background run history"))
+        sub_h2 = QLabel("Parsed from cleaner.log — each silent run (AUTO: freed …).")
+        sub_h2.setObjectName("PageSub")
+        hl2.addWidget(sub_h2)
+        self.hist_table = QTableWidget(0, 4)
+        self.hist_table.setHorizontalHeaderLabels(["When", "Disk", "RAM", "Hung"])
+        self.hist_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.hist_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.hist_table.horizontalHeader().setStretchLastSection(True)
+        self.hist_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.hist_table.verticalHeader().setVisible(False)
+        self.hist_table.setMinimumHeight(120)
+        self.hist_table.setShowGrid(False)
+        hl2.addWidget(self.hist_table)
+        hhist = QHBoxLayout()
+        self.btn_refresh_hist = FluentButton("Refresh history", "default")
+        self.btn_refresh_hist.setMinimumHeight(28)
+        self.btn_refresh_hist.clicked.connect(self._refresh_history)
+        hhist.addWidget(self.btn_refresh_hist)
+        hhist.addStretch(1)
+        hl2.addLayout(hhist)
+        v.addWidget(hist_card)
+
         self._add_page("Dashboard", sc)
+
+    def _refresh_log(self):
+        """I1: tail the real cleaner.log file."""
+        try:
+            with open(qf.LOG_FILE, "r", encoding="utf-8", errors="ignore") as fh:
+                lines = fh.readlines()
+            tail = lines[-40:] if len(lines) > 40 else lines
+            self.log.setPlainText("".join(tail) if tail else "(no log yet)")
+        except Exception as e:
+            self.log.setPlainText(f"No log yet — {e}")
+            Toast.notify(self, "No log file yet.", "info")
+
+    def _refresh_history(self):
+        """I2: parse AUTO: lines into history table."""
+        import re
+        try:
+            with open(qf.LOG_FILE, "r", encoding="utf-8", errors="ignore") as fh:
+                text = fh.read()
+        except Exception:
+            self.hist_table.setRowCount(0)
+            Toast.notify(self, "No history yet.", "info")
+            return
+        pat = re.compile(r"\[(.*?)\] AUTO: freed ([\d.]+) MB disk, ([\d.]+) MB RAM, (\d+) hung")
+        rows = pat.findall(text)
+        if not rows:
+            self.hist_table.setRowCount(0)
+            return
+        rows = rows[-20:]
+        self.hist_table.setRowCount(len(rows))
+        for i, (when, disk, ram, hung) in enumerate(rows):
+            self.hist_table.setItem(i, 0, QTableWidgetItem(when))
+            self.hist_table.setItem(i, 1, QTableWidgetItem(f"{disk} MB"))
+            self.hist_table.setItem(i, 2, QTableWidgetItem(f"{ram} MB"))
+            self.hist_table.setItem(i, 3, QTableWidgetItem(hung))
+        self.hist_table.resizeColumnsToContents()
+
+    def _scan_health(self):
+        """M1 health: scan_processes + problems_for + offer to close (like CLI run_scan_and_fix)."""
+        self._set_busy(self.btn_scan_health, "Scanning...")
+        self.health_result.setText("Sampling CPU ~1s, checking Not Responding / HIGH MEM / HIGH CPU...")
+        self.health_result.setObjectName("PageSub")
+        self.health_result.style().unpolish(self.health_result)
+        self.health_result.style().polish(self.health_result)
+
+        def work():
+            procs, sys_cpu, ncpu = qf.scan_processes()
+            mem = psutil.virtual_memory()
+            problems = []
+            for pd in procs:
+                if pd["pid"] in qf.IGNORE_PIDS or pd["name"] in qf.IGNORE_NAMES:
+                    continue
+                tags = qf.problems_for(pd)
+                if tags:
+                    problems.append((pd, tags))
+            problems.sort(key=lambda t: (not t[0]["hung"], -t[0]["mem_mb"]))
+            return problems, sys_cpu, ncpu, mem
+
+        def done(res):
+            self._set_busy(self.btn_scan_health, "Health scan", False)
+            problems, sys_cpu, ncpu, mem = res
+            if not problems:
+                self.health_result.setText(f"No misbehaving apps detected. RAM {mem.percent:.0f}% | CPU {sys_cpu:.0f}% | {ncpu} cores.")
+                self.health_result.setObjectName("OptResultGood")
+                self.health_result.style().unpolish(self.health_result)
+                self.health_result.style().polish(self.health_result)
+                Toast.notify(self, "No misbehaving apps detected.", "success")
+                return
+            # Build textual summary; offer details via dialog
+            self._pending_health = problems
+            lines = [f"Found {len(problems)} problem(s) — RAM {mem.percent:.0f}% | CPU {sys_cpu:.0f}%:"]
+            for pd, tags in problems[:8]:
+                eligible, reason = qf.is_eligible(pd)
+                lines.append(f"  {pd['name']} (PID {pd['pid']}, {pd['mem_mb']:.0f} MB): {', '.join(tags)} — {'CAN CLOSE' if eligible else reason}")
+            if len(problems) > 8:
+                lines.append(f"  ... and {len(problems)-8} more")
+            lines.append("Review in Optimize → Close a stuck app, or click Close selected.")
+            self.health_result.setText("\n".join(lines))
+            self.health_result.setObjectName("OptResult")
+            self.health_result.style().unpolish(self.health_result)
+            self.health_result.style().polish(self.health_result)
+            Toast.notify(self, f"Found {len(problems)} problem app(s) — see Optimize → Close a stuck app.", "warning")
+
+        self._run_async(work, done)
 
     # ---- Clean ----------------------------------------------------------- #
     def _build_clean(self):
@@ -896,8 +1098,41 @@ class PCApp(QMainWindow):
         self.opt_result.setWordWrap(True)
         ol.addWidget(self.opt_result)
         v.addWidget(self.opt_card)
+
+        # M4 — Close a stuck app (mini task manager)
+        lab_m4 = QLabel("Close a stuck app — top memory users (protected apps can't be closed)")
+        lab_m4.setObjectName("SectionLabel")
+        v.addWidget(lab_m4)
+        self.m4_table = QTableWidget(0, 4)
+        self.m4_table.setHorizontalHeaderLabels(["Program", "PID", "MEM (MB)", "Status"])
+        self.m4_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.m4_table.horizontalHeader().setStretchLastSection(True)
+        self.m4_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.m4_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.m4_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.m4_table.setShowGrid(False)
+        self.m4_table.verticalHeader().setVisible(False)
+        self.m4_table.setMinimumHeight(180)
+        v.addWidget(self.m4_table)
+        h_m4 = QHBoxLayout()
+        h_m4.setSpacing(10)
+        self.btn_m4_refresh = FluentButton("Refresh", "default")
+        self.btn_m4_refresh.clicked.connect(self._refresh_m4)
+        self.btn_m4_close = FluentButton("Close selected app", "default")
+        self.btn_m4_close.clicked.connect(self._close_m4_selected)
+        h_m4.addWidget(self.btn_m4_refresh)
+        h_m4.addWidget(self.btn_m4_close)
+        h_m4.addStretch(1)
+        v.addLayout(h_m4)
+
+        # M5 — Restart Explorer (fix hung taskbar)
+        self.btn_restart_ex = FluentButton("Restart Explorer (fix taskbar)", "default")
+        self.btn_restart_ex.setToolTip("Restarts Windows Explorer — taskbar may blink. File Explorer windows will close.")
+        self.btn_restart_ex.clicked.connect(self._restart_explorer)
+        v.addWidget(self.btn_restart_ex)
         v.addStretch(1)
         self._add_page("Optimize", sc)
+        QTimer.singleShot(400, self._refresh_m4)
 
     def _free_ram(self):
         self._set_busy(self.btn_free, "Working...")
@@ -928,6 +1163,82 @@ class PCApp(QMainWindow):
 
         self._run_async(work, done)
 
+    def _refresh_m4(self):
+        """M4: top memory users for closing."""
+        try:
+            hang = qf.get_window_hang_map()
+            procs = []
+            for p in psutil.process_iter(["pid", "name", "memory_info"]):
+                try:
+                    mi = p.info["memory_info"]
+                    if not mi:
+                        continue
+                    name = (p.info["name"] or "?").lower()
+                    pid = p.info["pid"]
+                    if pid in qf.IGNORE_PIDS or name in qf.IGNORE_NAMES:
+                        continue
+                    procs.append({"pid": pid, "name": name, "mem_mb": mi.rss / (1024*1024), "hung": hang.get(pid, {}).get("hung", False)})
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            procs.sort(key=lambda x: x["mem_mb"], reverse=True)
+            top = procs[:20]
+            self._m4_procs = top
+            self.m4_table.setRowCount(len(top))
+            for i, pd in enumerate(top):
+                self.m4_table.setItem(i, 0, QTableWidgetItem(pd["name"]))
+                self.m4_table.setItem(i, 1, QTableWidgetItem(str(pd["pid"])))
+                self.m4_table.setItem(i, 2, QTableWidgetItem(f"{pd['mem_mb']:.0f}"))
+                status = "NOT RESPONDING" if pd["hung"] else ("protected" if pd["name"] in qf.BLOCKLIST else "")
+                it = QTableWidgetItem(status)
+                it.setForeground(QColor(TOK["error"] if pd["hung"] else (TOK["warning"] if pd["name"] in qf.BLOCKLIST else TOK["text_secondary"])))
+                self.m4_table.setItem(i, 3, it)
+        except Exception as e:
+            Toast.notify(self, f"Process list error: {e}", "error")
+
+    def _close_m4_selected(self):
+        sel = self.m4_table.selectedItems()
+        if not sel:
+            Toast.notify(self, "Select an app first.", "warning")
+            return
+        row = sel[0].row()
+        pd = self._m4_procs[row]
+        if pd["name"] in qf.BLOCKLIST:
+            Toast.notify(self, f"{pd['name']} is protected and won't be closed.", "error")
+            return
+        # confirm
+        ret = QMessageBox.question(self, "Close app", f"Close {pd['name']} (PID {pd['pid']}, {pd['mem_mb']:.0f} MB)?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ret != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            p = psutil.Process(pd["pid"])
+            p.terminate()
+            try: p.wait(timeout=3)
+            except psutil.TimeoutExpired: p.kill(); p.wait(timeout=3)
+            Toast.notify(self, f"Closed {pd['name']} (PID {pd['pid']}).", "success")
+            self._log(f"Closed {pd['name']} (PID {pd['pid']}).")
+            self._refresh_m4()
+        except psutil.NoSuchProcess:
+            Toast.notify(self, "Already gone.", "info")
+        except psutil.AccessDenied:
+            Toast.notify(self, "Access denied — run as Administrator.", "error")
+        except Exception as e:
+            Toast.notify(self, f"Error: {e}", "error")
+
+    def _restart_explorer(self):
+        """M5: restart Windows Explorer (confirm first)."""
+        ret = QMessageBox.question(self, "Restart Explorer", "This closes and reopens Windows Explorer.\nYour taskbar will blink and File Explorer windows will close.\nContinue?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if ret != QMessageBox.StandardButton.Yes:
+            return
+        import subprocess
+        try:
+            subprocess.run(["taskkill", "/F", "/IM", "explorer.exe"], capture_output=True, text=True)
+            import time as _t; _t.sleep(1.0)
+            subprocess.Popen("explorer.exe")
+            Toast.notify(self, "Explorer restarted — give it a few seconds.", "success")
+            self._log("Explorer restarted by user.")
+        except Exception as e:
+            Toast.notify(self, f"Error: {e}", "error")
+
     # ---- Startup --------------------------------------------------------- #
     def _build_startup(self):
         sc, root, v = self._page(
@@ -948,7 +1259,7 @@ class PCApp(QMainWindow):
         self.start_tree.doubleClicked.connect(self._startup_toggle_sel)
         self.start_tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.start_tree.setShowGrid(False)
-        self.start_tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.start_tree.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.start_tree.verticalHeader().setVisible(False)
         self.start_tree.setAlternatingRowColors(False)
         self.start_tree._ratio_cb = self._apply_startup_ratios
@@ -1079,14 +1390,41 @@ class PCApp(QMainWindow):
         gn = QWidget()
         gl = QVBoxLayout(gn)
         gl.setContentsMargins(8, 16, 8, 8)
-        gl.setSpacing(16)
+        gl.setSpacing(12)
         self.notif_toggle = ToggleSwitch("Show a notification after each cleanup")
         self.notif_toggle.setChecked(bool(self.cfg.get("notifications", True)))
+        gl.addWidget(self.notif_toggle)
+        # A1 missing: memory + process auto options
+        a1_card = Card()
+        al2 = QVBoxLayout(a1_card)
+        al2.setContentsMargins(14, 12, 14, 12)
+        al2.setSpacing(8)
+        al2.addWidget(QLabel("Automatic actions (when A2 schedule runs)"))
+        self.mem_trim_toggle = ToggleSwitch("Auto-free RAM when usage ≥ threshold (purge standby)")
+        self.mem_trim_toggle.setChecked(bool(self.cfg.get("memory", {}).get("trim_on_pressure", False)))
+        hl_mem = QHBoxLayout()
+        hl_mem.addWidget(self.mem_trim_toggle)
+        hl_mem.addWidget(QLabel("Threshold %:"))
+        self.spin_pressure = QSpinBox(); self.spin_pressure.setRange(50,99); self.spin_pressure.setValue(int(self.cfg.get("memory", {}).get("pressure_percent", 85))); self.spin_pressure.setFixedWidth(70)
+        hl_mem.addWidget(self.spin_pressure)
+        hl_mem.addStretch(1)
+        al2.addLayout(hl_mem)
+        self.hung_toggle = ToggleSwitch("Auto-close Not-Responding apps (after grace)")
+        self.hung_toggle.setChecked(bool(self.cfg.get("process", {}).get("auto_close_hung", False)))
+        hl_hung = QHBoxLayout()
+        hl_hung.addWidget(self.hung_toggle)
+        hl_hung.addWidget(QLabel("Grace s:"))
+        self.spin_grace = QSpinBox(); self.spin_grace.setRange(5,300); self.spin_grace.setValue(int(self.cfg.get("process", {}).get("hung_grace_seconds", 20))); self.spin_grace.setFixedWidth(70)
+        hl_hung.addWidget(self.spin_grace)
+        hl_hung.addStretch(1)
+        al2.addLayout(hl_hung)
+        lab_warn = QLabel("Warning: closing a frozen app can lose its unsaved work.")
+        lab_warn.setStyleSheet(f"color: {TOK['warning']}; font-size: 11px;")
+        al2.addWidget(lab_warn)
+        gl.addWidget(a1_card)
         self.tray_toggle = ToggleSwitch("Hide to tray when closed (runs in background)")
         self.tray_toggle.setChecked(bool(self.cfg.get("tray_on_close", False)))
-        gl.addWidget(self.notif_toggle)
         gl.addWidget(self.tray_toggle)
-        # Tray-hide: apply immediately when toggled (so Close hides without needing Save)
         self.tray_toggle.toggled.connect(lambda state: self._set_tray_mode(state))
         saveg = FluentButton("Save", "default")
         saveg.clicked.connect(self._save_general)
@@ -1106,7 +1444,16 @@ class PCApp(QMainWindow):
         title = QLabel("Personal Cleaner")
         title.setObjectName("CardTitle")
         bl.addWidget(title)
-        bl.addWidget(QLabel("A free, open-source Windows PC cleaner.\nVersion 1.0"))
+        ver = qf.APP_VERSION
+        bl.addWidget(QLabel(f"Honest Windows Optimizer — v{ver}. Free & open source (MIT)."))
+        # show machine/license like CLI I3 when commercial
+        if COMMERCIAL and licensing:
+            try:
+                st = licensing.load_status()
+                bl.addWidget(QLabel(f"Edition: Commercial (Pro) — {st.get('message','')}"))
+                bl.addWidget(QLabel(f"Machine: {licensing.machine_id()}"))
+            except Exception:
+                pass
         lic = FluentButton("View license", "default")
         lic.clicked.connect(self._show_license)
         bl.addWidget(lic)
@@ -1129,6 +1476,15 @@ class PCApp(QMainWindow):
     def _save_general(self):
         self.cfg["notifications"] = self.notif_toggle.isChecked()
         self.cfg["tray_on_close"] = self.tray_toggle.isChecked()
+        self.cfg["memory"]["trim_on_pressure"] = self.mem_trim_toggle.isChecked()
+        self.cfg["memory"]["pressure_percent"] = self.spin_pressure.value()
+        self.cfg["process"]["auto_close_hung"] = self.hung_toggle.isChecked()
+        self.cfg["process"]["hung_grace_seconds"] = self.spin_grace.value()
+        # also persist min_age from Clean tab if changed
+        try:
+            self.cfg["min_age_hours"] = self.min_age.value()
+        except Exception:
+            pass
         self._persist()
         if self.cfg["tray_on_close"]:
             self._ensure_tray()
@@ -1230,11 +1586,111 @@ class PCApp(QMainWindow):
         v.addWidget(sch_card)
         v.addStretch(1)
 
+        # A3 — Weekly idle restart
+        rst_card = Card()
+        rl = QVBoxLayout(rst_card)
+        rl.setContentsMargins(18, 16, 18, 16)
+        rl.setSpacing(10)
+        rl.addWidget(QLabel("Weekly idle restart"))
+        self.rst_status = QLabel("Status: unknown")
+        self.rst_status.setObjectName("ProStatus")
+        rl.addWidget(self.rst_status)
+        rh = QHBoxLayout()
+        rh.setSpacing(10)
+        rh.addWidget(QLabel("Day:"))
+        self.rst_day = QComboBox(); self.rst_day.addItems(["SUN","MON","TUE","WED","THU","FRI","SAT"]); self.rst_day.setFixedWidth(80)
+        rh.addWidget(self.rst_day)
+        rh.addWidget(QLabel("Time:"))
+        self.rst_time = QLineEdit(qf.DEFAULT_CONFIG["restart"]["time"])
+        self.rst_time.setPlaceholderText("04:00")
+        self.rst_time.setFixedWidth(70)
+        rh.addWidget(self.rst_time)
+        rh.addWidget(QLabel("Idle min:"))
+        self.rst_idle = QSpinBox(); self.rst_idle.setRange(1,1440); self.rst_idle.setValue(60); self.rst_idle.setFixedWidth(70)
+        rh.addWidget(self.rst_idle)
+        rh.addStretch(1)
+        rl.addLayout(rh)
+        rh2 = QHBoxLayout(); rh2.setSpacing(10)
+        self.btn_rst_install = FluentButton("Enable restart", "default")
+        self.btn_rst_install.clicked.connect(self._install_restart)
+        self.btn_rst_uninstall = FluentButton("Disable", "default")
+        self.btn_rst_uninstall.clicked.connect(self._uninstall_restart)
+        self.btn_rst_refresh = FluentButton("Refresh", "default")
+        self.btn_rst_refresh.clicked.connect(self._refresh_restart)
+        rh2.addWidget(self.btn_rst_install); rh2.addWidget(self.btn_rst_uninstall); rh2.addWidget(self.btn_rst_refresh); rh2.addStretch(1)
+        rl.addLayout(rh2)
+        v.addWidget(rst_card)
+
+        # P1 — Defender exclusions
+        def_card = Card()
+        dl = QVBoxLayout(def_card)
+        dl.setContentsMargins(18, 16, 18, 16)
+        dl.setSpacing(8)
+        dl.addWidget(QLabel("Defender exclusions (Pro)"))
+        dl.addWidget(QLabel("Add folder/process exclusions so dev builds aren't slowed. Requires admin."))
+        hint_def = QLabel("Examples — Folder: C:\\Projects  or  C:\\Users\\You\\Dev  |  Process: devenv.exe  or  code.exe")
+        hint_def.setObjectName("PageSub")
+        hint_def.setWordWrap(True)
+        dl.addWidget(hint_def)
+        self.def_table = QTableWidget(0, 2)
+        self.def_table.setHorizontalHeaderLabels(["Type", "Path / Process"])
+        self.def_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.def_table.horizontalHeader().setStretchLastSection(True)
+        self.def_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.def_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.def_table.verticalHeader().setVisible(False)
+        self.def_table.setMinimumHeight(100)
+        self.def_table.setShowGrid(False)
+        dl.addWidget(self.def_table)
+        dh = QHBoxLayout(); dh.setSpacing(10)
+        self.btn_def_refresh = FluentButton("Refresh", "default")
+        self.btn_def_refresh.clicked.connect(self._refresh_defender)
+        self.btn_def_add = FluentButton("Add exclusion", "default")
+        self.btn_def_add.clicked.connect(self._add_defender)
+        self.btn_def_remove = FluentButton("Remove selected", "default")
+        self.btn_def_remove.clicked.connect(self._remove_defender)
+        dh.addWidget(self.btn_def_refresh); dh.addWidget(self.btn_def_add); dh.addWidget(self.btn_def_remove); dh.addStretch(1)
+        dl.addLayout(dh)
+        v.addWidget(def_card)
+
+        # P2 — Service tuning
+        svc_card = Card()
+        svl = QVBoxLayout(svc_card)
+        svl.setContentsMargins(18, 16, 18, 16)
+        svl.setSpacing(8)
+        svl.addWidget(QLabel("Service tuning (Pro)"))
+        svl.addWidget(QLabel("Set noisy background services to Manual/Disabled. Reversible. Requires admin."))
+        self.svc_table = QTableWidget(0, 4)
+        self.svc_table.setHorizontalHeaderLabels(["Service", "Friendly", "Target", "Current"])
+        self.svc_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.svc_table.horizontalHeader().setStretchLastSection(True)
+        self.svc_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.svc_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.svc_table.verticalHeader().setVisible(False)
+        self.svc_table.setMinimumHeight(120)
+        self.svc_table.setShowGrid(False)
+        svl.addWidget(self.svc_table)
+        sh = QHBoxLayout(); sh.setSpacing(10)
+        self.btn_svc_refresh = FluentButton("Refresh", "default")
+        self.btn_svc_refresh.clicked.connect(self._refresh_services)
+        self.btn_svc_tune = FluentButton("Tune selected", "default")
+        self.btn_svc_tune.clicked.connect(self._tune_service)
+        self.btn_svc_restore = FluentButton("Restore original", "default")
+        self.btn_svc_restore.clicked.connect(self._restore_service)
+        sh.addWidget(self.btn_svc_refresh); sh.addWidget(self.btn_svc_tune); sh.addWidget(self.btn_svc_restore); sh.addStretch(1)
+        svl.addLayout(sh)
+        v.addWidget(svc_card)
+
         if not (COMMERCIAL and licensing):
             self.pro_status.setText("Commercial features are not available in this build.")
             self.btn_activate.setEnabled(False)
             self.btn_mid.setEnabled(False)
             self.btn_sched_install.setEnabled(False)
+            self.btn_rst_install.setEnabled(False)
+            self.btn_def_add.setEnabled(False)
+            self.btn_def_remove.setEnabled(False)
+            self.btn_svc_tune.setEnabled(False)
+            self.btn_svc_restore.setEnabled(False)
         self._add_page("Pro", sc)
 
     def _refresh_pro_status(self):
@@ -1312,19 +1768,173 @@ class PCApp(QMainWindow):
             Toast.notify(self, f"Error: {e}", "error")
         self._refresh_sched()
 
+    # A3
+    def _refresh_restart(self):
+        try:
+            st = qf.restart_task_state()
+            self.rst_status.setText(f"Restart task: {st}")
+            cfg = qf.load_config()
+            r = cfg.get("restart", {})
+            if st == "present":
+                self.rst_day.setCurrentText(r.get("day", "SUN"))
+                self.rst_time.setText(r.get("time", "04:00"))
+                self.rst_idle.setValue(int(r.get("idle_minutes", 60)))
+        except Exception as e:
+            self.rst_status.setText(f"Error: {e}")
+
+    def _install_restart(self):
+        if not qf._licensed_or_free():
+            Toast.notify(self, "Pro license needed.", "error")
+            return
+        day = self.rst_day.currentText()
+        t = self.rst_time.text().strip()
+        idle = self.rst_idle.value()
+        cfg = qf.load_config()
+        cfg["restart"].update({"day": day, "time": t, "idle_minutes": idle, "enabled": True})
+        qf.save_config(cfg)
+        ok = qf.enable_restart(day, t)
+        Toast.notify(self, "Weekly restart enabled." if ok else "Failed — run as Administrator.", "success" if ok else "error")
+        self._refresh_restart()
+
+    def _uninstall_restart(self):
+        qf.disable_restart()
+        cfg = qf.load_config()
+        cfg["restart"]["enabled"] = False
+        qf.save_config(cfg)
+        Toast.notify(self, "Weekly restart disabled.", "success")
+        self._refresh_restart()
+
+    # P1 Defender
+    def _refresh_defender(self):
+        self.def_table.setRowCount(0)
+        self._def_items = []
+        try:
+            if hasattr(qf, "defender_get_exclusions"):
+                try:
+                    paths, procs = qf.defender_get_exclusions()
+                    # defender_get_exclusions returns (paths, procs) tuple
+                    items = [( "path", p) for p in (paths or [])] + [("process", p) for p in (procs or [])]
+                    self._def_items = items
+                    self.def_table.setRowCount(len(items))
+                    for i, (typ, path) in enumerate(items):
+                        self.def_table.setItem(i, 0, QTableWidgetItem(typ))
+                        self.def_table.setItem(i, 1, QTableWidgetItem(path))
+                    return
+                except Exception:
+                    pass
+            # fallback single-list form
+            prefs = qf.defender_get_exclusions() if hasattr(qf, "defender_get_exclusions") else []
+            if isinstance(prefs, list):
+                self._def_items = prefs if prefs and isinstance(prefs[0], tuple) else [("path", p) for p in prefs]
+                self.def_table.setRowCount(len(self._def_items))
+                for i, (typ, path) in enumerate(self._def_items):
+                    self.def_table.setItem(i, 0, QTableWidgetItem(typ))
+                    self.def_table.setItem(i, 1, QTableWidgetItem(path))
+        except Exception as e:
+            Toast.notify(self, f"Defender error: {e}", "error")
+
+    def _add_defender(self):
+        path, ok = QInputDialog.getText(self, "Add exclusion", "e.g. C:\\Projects  or  code.exe\n(Type below, then pick path/process):")
+        if not ok or not path.strip():
+            return
+        try:
+            # ask kind
+            kind, ok2 = QInputDialog.getItem(self, "Exclusion type", "Type:", ["path","process"], 0, False)
+            if not ok2:
+                kind = "path"
+            qf.defender_add(kind, path.strip())
+            self._refresh_defender()
+            Toast.notify(self, "Exclusion added.", "success")
+        except Exception as e:
+            Toast.notify(self, f"Error: {e}", "error")
+
+    def _remove_defender(self):
+        sel = self.def_table.selectedItems()
+        if not sel:
+            Toast.notify(self, "Select a row first.", "warning")
+            return
+        row = sel[0].row()
+        if row >= len(self._def_items):
+            return
+        typ, path = self._def_items[row]
+        try:
+            qf.defender_remove(typ, path)
+            self._refresh_defender()
+            Toast.notify(self, "Removed.", "success")
+        except Exception as e:
+            Toast.notify(self, f"Error: {e}", "error")
+
+    # P2 Services
+    def _refresh_services(self):
+        self.svc_table.setRowCount(0)
+        try:
+            items = qf.SERVICE_TUNING
+            self._svc_items = items
+            self.svc_table.setRowCount(len(items))
+            for i, (svc, friendly, why, target) in enumerate(items):
+                cur = ""
+                try:
+                    res = qf.svc_query([svc]) if hasattr(qf, "svc_query") else {}
+                    cur = res.get(svc, {}).get("mode", res.get(svc, "unknown")) if isinstance(res, dict) else str(res)
+                except Exception:
+                    cur = "unknown"
+                self.svc_table.setItem(i, 0, QTableWidgetItem(svc))
+                self.svc_table.setItem(i, 1, QTableWidgetItem(friendly))
+                self.svc_table.setItem(i, 2, QTableWidgetItem(target))
+                self.svc_table.setItem(i, 3, QTableWidgetItem(str(cur)))
+        except Exception as e:
+            Toast.notify(self, f"Service error: {e}", "error")
+
+    def _tune_service(self):
+        sel = self.svc_table.selectedItems()
+        if not sel:
+            Toast.notify(self, "Select a service first.", "warning")
+            return
+        row = sel[0].row()
+        svc, friendly, why, target = self._svc_items[row]
+        try:
+            ok, err = qf.svc_set(svc, target)
+            Toast.notify(self, f"Set {svc} → {target}." if ok else f"Failed: {err}", "success" if ok else "error")
+            self._refresh_services()
+        except Exception as e:
+            Toast.notify(self, f"Error (need admin): {e}", "error")
+
+    def _restore_service(self):
+        sel = self.svc_table.selectedItems()
+        if not sel:
+            Toast.notify(self, "Select a service first.", "warning")
+            return
+        row = sel[0].row()
+        svc = self._svc_items[row][0]
+        try:
+            # restore original mode saved in config
+            cfg = qf.load_config()
+            orig = cfg.get("services", {}).get(svc)
+            if orig:
+                ok, err = qf.svc_set(svc, orig)
+                Toast.notify(self, f"Restored {svc} → {orig}." if ok else f"Failed: {err}", "success" if ok else "error")
+            else:
+                Toast.notify(self, "No original saved for this service.", "info")
+        except Exception as e:
+            Toast.notify(self, f"Error: {e}", "error")
+        self._refresh_services()
+
     # ---- shared actions -------------------------------------------------- #
     def _scan(self):
-        self._set_busy(self.btn_scan, "Scanning...")
-        self._log("Scanning for junk...")
+        self._set_busy(self.btn_scan, "Scanning junk...", True)
+        self._log("Scanning junk...")
+        self.junk_log.setPlainText("[Scanning junk — estimating reclaimable...]")
+        self._run_async(self._estimate_total, self._on_scan_done)
 
-        def done(total):
-            self.stat_junk.value_label.setText(self._fmt(total))
-            self._set_busy(self.btn_scan, "Scan", False)
-            self.btn_clean.setEnabled(True)
-            self._log(f"Scan complete: {self._fmt(total)} found.")
-            self._notify(f"Scan complete: {self._fmt(total)} found.", "success")
-
-        self._run_async(self._estimate_total, done)
+    def _on_scan_done(self, total):
+        txt = f"Scan complete: {self._fmt(total)} found."
+        self.stat_junk.value_label.setText(self._fmt(total))
+        self._set_busy(self.btn_scan, "Scan junk", False)
+        self.btn_clean.setEnabled(True)
+        # keep junk output in junk_log (section 1), not overwriting log/history
+        self.junk_log.setPlainText(f"[Junk scan] {txt}\nChoose Clean to delete ticked categories.")
+        self._log(f"[Junk scan] {txt}")
+        self._notify(txt, "success")
 
     def _clean(self):
         if not any(self.cfg["cleanup"].values()):

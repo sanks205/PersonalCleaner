@@ -1,8 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_submodules
-
-hiddenimports = ['licensing', 'PyQt6.QtCore', 'PyQt6.QtWidgets', 'PyQt6.QtGui', 'PyQt6.QtNetwork', 'PyQt6.QtWidgets.QSystemTrayIcon']
-hiddenimports += collect_submodules('PyQt6')
 
 
 a = Analysis(
@@ -10,11 +6,20 @@ a = Analysis(
     pathex=['commercial'],
     binaries=[],
     datas=[('icon.ico', '.'), ('LICENSE', '.')],
-    hiddenimports=hiddenimports,
+    hiddenimports=['licensing', 'PyQt6.QtCore', 'PyQt6.QtWidgets', 'PyQt6.QtGui', 'PyQt6.QtNetwork'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    # Lean: exclude heavy unused Qt modules to cut 80MB -> 35MB; keep no-upx for no false positives
+    excludes=[
+        'PyQt6.QtWebEngineCore', 'PyQt6.QtWebEngineWidgets', 'PyQt6.QtWebEngineQuick',
+        'PyQt6.QtMultimedia', 'PyQt6.QtMultimediaWidgets',
+        'PyQt6.QtWebChannel', 'PyQt6.QtWebSockets',
+        'PyQt6.QtQuick', 'PyQt6.QtQuickWidgets', 'PyQt6.QtQml', 'PyQt6.QtQuick3D',
+        'PyQt6.Qt3DCore', 'PyQt6.Qt3DRender', 'PyQt6.QtBluetooth', 'PyQt6.QtNfc',
+        'PyQt6.QtPositioning', 'PyQt6.QtLocation', 'PyQt6.QtSensors', 'PyQt6.QtSerialPort',
+        'PyQt6.QtSql', 'PyQt6.QtPdf', 'PyQt6.QtCharts',
+    ],
     noarchive=False,
     optimize=0,
 )
